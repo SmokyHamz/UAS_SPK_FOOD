@@ -25,22 +25,39 @@ def load_data():
 
 df, numeric_cols = load_data()
 
-
 # ==========================
-# FUNGSI AMAN TAMPIL GAMBAR SERAGAM 250x250
+# FUNGSI TAMPIL GAMBAR SERAGAM
 # ==========================
 def show_food_image_from_url(image_url, size=(250, 250)):
     try:
         if pd.notna(image_url) and str(image_url).startswith("http"):
-            response = requests.get(image_url)
+            response = requests.get(image_url, timeout=10)
             img = Image.open(BytesIO(response.content))
-            img = img.resize(size)  # resize gambar agar seragam
+            img = img.resize(size)
             st.image(img)
         else:
             st.warning("❌ Gambar tidak tersedia")
     except:
         st.error("⚠️ Gagal memuat gambar")
 
+# ==========================
+# TARGET NUTRISI HARIAN
+# ==========================
+TARGET_KALORI = 2000
+TARGET_PROTEIN = 75
+TARGET_LEMAK = 65
+TARGET_KARBO = 300
+
+# ==========================
+# STATUS NUTRISI
+# ==========================
+def status_nutrisi(total, target):
+    if total < target * 0.8:
+        return "❗ Kurang"
+    elif total <= target * 1.2:
+        return "✅ Cukup"
+    else:
+        return "⚠️ Berlebih"
 
 # ==========================
 # SIDEBAR
@@ -48,7 +65,7 @@ def show_food_image_from_url(image_url, size=(250, 250)):
 st.sidebar.title("⚙️ Mode Sistem")
 mode = st.sidebar.radio(
     "Pilih Mode:",
-    ["🔍 Rekomendasi dari Nutrisi", "🍱 Hitung Nutrisi dari 2 Makanan"]
+    ["🔍 Rekomendasi dari Nutrisi", "🍽️ Nutrisi Harian (3x Makan)"]
 )
 
 # ==========================
@@ -57,7 +74,6 @@ mode = st.sidebar.radio(
 if mode == "🔍 Rekomendasi dari Nutrisi":
 
     st.title("🍽️ Sistem Rekomendasi Makanan Berbasis CBR")
-    st.write("Masukkan kebutuhan nutrisi Anda, lalu sistem akan merekomendasikan makanan terdekat.")
 
     cal_input = st.number_input("Target Kalori (kkal)", min_value=0, value=500)
     fat_input = st.number_input("Batas Lemak (g)", min_value=0, value=10)
@@ -86,56 +102,57 @@ if mode == "🔍 Rekomendasi dari Nutrisi":
         rekomendasi_terbaik = result.iloc[0]
 
         st.success(f"🎯 Rekomendasi terbaik: **{rekomendasi_terbaik['name']}**")
-
-        st.subheader("🖼️ Gambar Makanan Rekomendasi")
-        show_food_image_from_url(rekomendasi_terbaik['image'], size=(250, 250))
-
-    else:
-        st.info("Silahkan isi kebutuhan terlebih dahulu lalu klik 'Cari Rekomendasi'")
-
+        show_food_image_from_url(rekomendasi_terbaik['image'])
 
 # ==========================
-# MODE 2: HITUNG 2 MAKANAN
+# MODE 2: NUTRISI HARIAN 3x MAKAN
 # ==========================
 else:
 
-    st.title("🍱 Sistem Hitung Nutrisi dari 2 Makanan")
-    st.write("Pilih dua makanan untuk mengetahui total kandungan nutrisinya.")
+    st.title("🍽️ Perhitungan Nutrisi Harian (3x Makan)")
 
     food_list = df['name'].tolist()
 
-    food1 = st.selectbox("Pilih Makanan Pertama", food_list)
-    food2 = st.selectbox("Pilih Makanan Kedua", food_list)
+    pagi = st.selectbox("Sarapan", food_list)
+    siang = st.selectbox("Makan Siang", food_list)
+    malam = st.selectbox("Makan Malam", food_list)
 
-    if st.button("Hitung Total Nutrisi"):
-        makanan1 = df[df['name'] == food1].iloc[0]
-        makanan2 = df[df['name'] == food2].iloc[0]
+    if st.button("Hitung Nutrisi Harian"):
 
-        total_kalori = makanan1['calories'] + makanan2['calories']
-        total_lemak = makanan1['fat'] + makanan2['fat']
-        total_protein = makanan1['protein'] + makanan2['protein']
-        total_karbo = makanan1['carbs'] + makanan2['carbs']
+        m1 = df[df['name'] == pagi].iloc[0]
+        m2 = df[df['name'] == siang].iloc[0]
+        m3 = df[df['name'] == malam].iloc[0]
 
-        # Tampilkan 2 kolom untuk makanan
-        col1, col2 = st.columns(2)
+        total_kalori = m1['calories'] + m2['calories'] + m3['calories']
+        total_lemak = m1['fat'] + m2['fat'] + m3['fat']
+        total_protein = m1['protein'] + m2['protein'] + m3['protein']
+        total_karbo = m1['carbs'] + m2['carbs'] + m3['carbs']
+
+        col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.subheader("🍱 Makanan 1")
-            show_food_image_from_url(makanan1['image'], size=(250, 250))
-            st.write(makanan1[['calories', 'fat', 'protein', 'carbs']])
+            st.subheader("Sarapan")
+            show_food_image_from_url(m1['image'])
+            st.write(m1[['calories', 'fat', 'protein', 'carbs']])
 
         with col2:
-            st.subheader("🍛 Makanan 2")
-            show_food_image_from_url(makanan2['image'], size=(250, 250))
-            st.write(makanan2[['calories', 'fat', 'protein', 'carbs']])
+            st.subheader("Makan Siang")
+            show_food_image_from_url(m2['image'])
+            st.write(m2[['calories', 'fat', 'protein', 'carbs']])
 
-        st.subheader("✅ Total Nutrisi Gabungan")
+        with col3:
+            st.subheader("Makan Malam")
+            show_food_image_from_url(m3['image'])
+            st.write(m3[['calories', 'fat', 'protein', 'carbs']])
+
+        st.subheader("✅ TOTAL NUTRISI HARIAN")
+
         st.success(f"""
-        🔥 Kalori: {total_kalori:.2f} kkal  
-        🥑 Lemak: {total_lemak:.2f} g  
-        💪 Protein: {total_protein:.2f} g  
-        🍞 Karbohidrat: {total_karbo:.2f} g
+🔥 Kalori: {total_kalori:.2f} kkal → {status_nutrisi(total_kalori, TARGET_KALORI)}  
+🥑 Lemak: {total_lemak:.2f} g → {status_nutrisi(total_lemak, TARGET_LEMAK)}  
+💪 Protein: {total_protein:.2f} g → {status_nutrisi(total_protein, TARGET_PROTEIN)}  
+🍞 Karbohidrat: {total_karbo:.2f} g → {status_nutrisi(total_karbo, TARGET_KARBO)}
         """)
 
     else:
-        st.info("Silakan pilih 2 makanan lalu klik **Hitung Total Nutrisi**")
+        st.info("Silakan pilih menu Sarapan, Siang, dan Malam terlebih dahulu.")
